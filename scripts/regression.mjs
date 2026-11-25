@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+let store={};globalThis.localStorage={getItem:k=>store[k]||null,setItem:(k,v)=>store[k]=v};
+const {workspaceAction,workspaceInput,workspaceView,currentFile}=await import('../public/src/workspace.js');
+let html;const render=()=>html=workspaceView();globalThis.window={confirm:()=>true,alert:m=>{throw Error(m)}};
+let terminated=0;
+globalThis.Worker=class {constructor(){globalThis.lastWorker=this}postMessage(){}terminate(){terminated++}};
+await workspaceAction('select',{dataset:{index:'1'}},render);
+await workspaceAction('run',{},render);assert.match(html,/Running…/);
+await workspaceAction('stop',{},render);assert.match(html,/Stopped by learner/);assert.equal(terminated,1);
+lastWorker.onmessage({data:{id:1,ok:true,output:'late'}});assert.match(html,/Stopped by learner/);
+await workspaceAction('select',{dataset:{index:'999'}},render);assert.equal(currentFile().name,'main.js');
+const backup={files:[{name:'custom.py',code:'\nprint(42)',tests:'assert True',testEnabled:true}],selected:0};
+await workspaceInput({id:'workspace-import',files:[{size:100,text:async()=>JSON.stringify(backup)}]},render);assert.equal(currentFile().code,'\nprint(42)');assert.match(html,/Workspace restored/);assert.equal(JSON.parse(store['fabready.workspace.v1']).files[0].name,'custom.py');
+let error='';window.alert=m=>{error=m};await workspaceInput({id:'workspace-import',files:[{size:100,text:async()=>JSON.stringify({files:[{name:'../bad.py',code:'x'}]})}]},render);assert.match(error,/Invalid/);assert.equal(currentFile().name,'custom.py');
+const workerSource=fs.readFileSync('public/src/sql-worker.js','utf8');
+const ctx=vm.createContext({self:{}});vm.runInContext(workerSource,ctx);
+const compare=(a,b)=>vm.runInContext(`sameResult(${JSON.stringify(a)},${JSON.stringify(b)})`,ctx);
+const base={columns:['x'],values:[[1],[2]]};assert.equal(compare(base,base),true);assert.equal(compare(base,{columns:['x'],values:[[2],[1]]}),false);assert.equal(compare(base,{columns:['x'],values:[[1]]}),false);assert.equal(compare(base,{columns:['different'],values:[[1],[2]]}),false);assert.equal(compare(base,{columns:['x'],values:[[1.000000001],[2]]}),true);
+// Test SQL control logic with a statement iterator stub; real WASM runtime is separately tested after npm install.
+vm.runInContext(`db={iterateStatements(q){return [{getColumnNames:()=>['x'],step:(()=>{let n=0;return()=>++n<=1})(),get:()=>[1]},...(q.includes('; SELECT')?[{getColumnNames:()=>['x']}]:[])]}}`,ctx);
+assert.throws(()=>vm.runInContext(`readQuery('SELECT 1; SELECT 2')`,ctx),/exactly one/);assert.throws(()=>vm.runInContext(`readQuery('SELECT 1; DROP TABLE tools')`,ctx),/Read-only/);assert.equal(vm.runInContext(`readQuery('SELECT 1').values[0][0]`,ctx),1);
+console.log('PASS: cancellation, stale callback rejection, validated backup restore, invalid backup rejection, ordered SQL grading, single-query policy.');

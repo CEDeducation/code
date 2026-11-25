@@ -1,0 +1,22 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+    "charliermarsh.ruff",
+    "ms-toolsai.jupyter",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "ms-azuretools.vscode-containers",
+    "eamodio.gitlens",
+    "GitHub.vscode-pull-request-github",
+    "humao.rest-client",
+    "ms-vscode.cpptools",
+    "vscjava.vscode-java-pack",
+    "EditorConfig.EditorConfig",
+    "redhat.vscode-yaml",
+    "ms-vscode-remote.remote-containers"
+  ]
+}
